@@ -77,39 +77,6 @@ async def handle_bases_bob(
     writer: StreamWriter,
     raw_msg: str,
 ) -> str:
-    """
-    STATE_WAITING_BASES handler.
- 
-    raw_msg contains Alice's basis string θ as comma-separated bits.
-    Example: "0,1,0,1,1,0,0,1"
- 
-    Steps:
-    1. Parse θ from raw_msg into np.ndarray of int. Store in ctx.theta.
- 
-    2. Find matching indices:
-         I = indices where ctx.theta[j] == ctx.theta_tilde[j]
-       These are rounds where Bob measured in the correct basis
-       and therefore x_tilde[j] = x[j] exactly.
- 
-    3. Trim I to exactly ell indices: I = I[:ell]
-       Trim complement to exactly ell indices as well.
-       (2ℓ qubits sent guarantees |I| ≥ ℓ with high probability)
- 
-    4. Assign partition based on y (read Protocol 10 carefully):
-         if y == 0: I0 = I,          I1 = complement
-         if y == 1: I0 = complement, I1 = I
-       This ensures Bob can unmask s_y (he knows x at I_y positions)
-       but cannot unmask s_{1-y} (wrong basis → random outcomes).
- 
-    5. Store ctx.I0 = I0, ctx.I1 = I1.
- 
-    6. Send partition as "I0_indices|I1_indices\n"
-       Comma-separated indices on each side.
-       Empty set: empty string on that side.
-       Example: "0,3,5|1,2,4,6,7\n"
- 
-    Returns: STATE_WAITING_MASKED
-    """
 
     theta = np.array([int(b) for b in raw_msg.split(",")], dtype=int)
     ctx.theta = theta
