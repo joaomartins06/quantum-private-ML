@@ -1,8 +1,14 @@
+import sys
 from asyncio import StreamReader, StreamWriter
 from pathlib import Path
 from types import SimpleNamespace
  
 import numpy as np
+ 
+from simulaqron.general.host_config import SocketsConfig
+from simulaqron.sdk.protocol import SimulaQronClassicalServer
+from simulaqron.settings import network_config, simulaqron_settings
+from simulaqron.settings.network_config import NodeConfigType
  
 from netqasm.runtime.settings import set_simulator
 set_simulator("simulaqron")
@@ -122,7 +128,7 @@ async def handle_masked_bob(
 
     ctx.s_y = t_y ^ ctx.x_tilde[I_y]
 
-    print("".join(map(str, ctx.s_y)))
+    print("".join(map(str, ctx.s_y)), flush=True)
 
     return STATE_DONE
  
@@ -130,8 +136,6 @@ async def handle_masked_bob(
 # ── Event loop ────────────────────────────────────────────────────────────────
  
 def make_run_bob(y: int, ell: int):
-
-    result = SimpleNamespace(s_y=None)
 
     async def run_bob(reader: StreamReader, writer: StreamWriter) -> None:
         #print("Bob: Alice connected.", flush=True)
@@ -164,7 +168,29 @@ def make_run_bob(y: int, ell: int):
                 state = await handle_masked_bob(ctx, y, writer, raw_msg)
  
         #print(f"Bob: OT complete (final state: {state}).", flush=True)
-        result.s_y = ctx.s_y
+        return ctx.s_y
  
-    return run_bob, result
+    return run_bob
  
+ 
+# ── Entry point (for isolated testing) ───────────────────────────────────────
+ 
+if __name__ == "__main__":
+
+    if len(sys.argv) != 3:
+        print("Usage: python3 bob.py <ell> <y>")
+        sys.exit(1)
+ 
+    ell = int(sys.argv[1])
+    y   = int(sys.argv[2])
+ 
+    _here = Path(__file__).parent
+    simulaqron_settings.read_from_file(_here / "simulaqron_settings.json")
+    network_config.read_from_file(_here / "simulaqron_network.json")
+ 
+    sockets_config = SocketsConfig(network_config, "default", NodeConfigType.APP)
+    server = SimulaQronClassicalServer(sockets_config, "Bob")
+    server.register_client_handler(make_run_bob(y, ell))
+ 
+    #print(f"Bob: starting OT server (ell={ell}, y={y})...", flush=True)
+    server.start_serving()
