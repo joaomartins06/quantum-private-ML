@@ -2,9 +2,9 @@ import sys
 from asyncio import StreamReader, StreamWriter
 from pathlib import Path
 from types import SimpleNamespace
- 
+
 import numpy as np
- 
+
 from simulaqron.general.host_config import SocketsConfig
 from simulaqron.sdk.protocol import SimulaQronClassicalServer
 from simulaqron.settings import network_config, simulaqron_settings
@@ -82,7 +82,7 @@ async def handle_bases_bob(
     ctx.theta = theta
 
     I = np.where(ctx.theta == ctx.theta_tilde)[0]
-    if len(I) < ell:
+    if len(I) < 2*ell:
         writer.write(b"ABORT\n")
         await writer.drain()
         return STATE_RUNNING_QUANTUM
