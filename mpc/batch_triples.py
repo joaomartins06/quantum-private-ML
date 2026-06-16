@@ -9,8 +9,11 @@ ell = 4
 triples_dir = Path("triples")
 triples_dir.mkdir(exist_ok=True)
 
-alice_triples = []
-bob_triples = []
+alice_path = triples_dir / "alice.json"
+bob_path = triples_dir / "bob.json"
+
+alice_triples = json.load(open(alice_path)) if alice_path.exists() else []
+bob_triples = json.load(open(bob_path)) if bob_path.exists() else []
 
 start_backend()
 try:
@@ -22,12 +25,11 @@ try:
         mod = 2 ** ell
         ok = ((u0 + u1) * (v0 + v1)) % mod == (z0 + z1) % mod
         print(f"[{i}] match={ok}")
+
+        # save incrementally so we don't lose this run's progress
+        json.dump(alice_triples, open(alice_path, "w"))
+        json.dump(bob_triples, open(bob_path, "w"))
 finally:
     stop_backend()
 
-with open(triples_dir / "alice.json", "w") as f:
-    json.dump(alice_triples, f)
-with open(triples_dir / "bob.json", "w") as f:
-    json.dump(bob_triples, f)
-
-print(f"Saved {len(alice_triples)} triples to {triples_dir}/alice.json and bob.json")
+print(f"Total triples now: {len(alice_triples)}")
