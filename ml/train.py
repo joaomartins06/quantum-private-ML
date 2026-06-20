@@ -8,6 +8,7 @@ from sklearn.datasets import load_diabetes
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import SGDRegressor
+
 from mpc.triples_generator import generate_classical_triple
 from mpc.multiply import (
     encode, decode, share, reconstruct,
