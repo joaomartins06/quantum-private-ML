@@ -4,7 +4,7 @@ from pathlib import Path
  
 
 #simulaqron works, but it is extremely slow
-#so let's just generate a ton of triples with 32 bits using this file and not wait a literal eternity 
+#so let's just generate a ton of triples with 64 bits using this file and not wait a literal eternity 
 
  
 def share(x, ell):
@@ -12,8 +12,8 @@ def share(x, ell):
     s0 = random.randrange(mod)
     s1 = (x - s0) % mod
     return s0, s1
- 
- 
+
+
 def generate_classical_triple(ell):
     mod = 1 << ell
     a = random.randrange(mod)
@@ -26,7 +26,7 @@ def generate_classical_triple(ell):
  
     return (a0, b0, c0), (a1, b1, c1)
  
- 
+
 def generate_batch(N, ell, triples_dir):
     triples_dir = Path(triples_dir)
     triples_dir.mkdir(exist_ok=True)
@@ -52,10 +52,10 @@ def generate_batch(N, ell, triples_dir):
     print(f"Total triples now: {len(alice_triples)}")
     return alice_triples, bob_triples
  
- 
+
 if __name__ == "__main__":
-    N = 50
+    N = 10
     ELL = 64
     TRIPLES_DIR = "triples_classical"
- 
+
     generate_batch(N, ELL, TRIPLES_DIR)

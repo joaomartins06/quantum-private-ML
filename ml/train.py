@@ -8,7 +8,7 @@ from sklearn.datasets import load_diabetes
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import SGDRegressor
-
+from mpc.triples_generator import generate_classical_triple
 from mpc.multiply import (
     encode, decode, share, reconstruct,
     load_triples, next_triple, beaver_mul, truncate
@@ -19,7 +19,7 @@ F = 16
 MOD = 1 << ELL
 LR = 0.001
 BATCH_SIZE = 4
-EPOCHS = 3
+EPOCHS = 100
 TRIPLES_DIR = Path("triples_classical")
 #Division of features between Alice and Bob (there are 10 features in this dataset)
 ALICE_FEATURES = list(range(0, 5))   
@@ -35,6 +35,11 @@ def prepare_data():
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     return train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+
+def next_classical_triple(ell):
+    (a0, b0, c0), (a1, b1, c1) = generate_classical_triple(ell)
+    return ((a0, b0, c0), (a1, b1, c1))
 
 
 def encode_and_share(M, f, ell):
@@ -76,12 +81,12 @@ def mul_by_cte(x_sh, c_sh, f, ell):
     return truncate(x_sh_new, f, ell)
 
 
-def secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d, alice_q, bob_q):
+def secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d):
     pred_sh = []
     for i in batch_idx:
         pred = (0, 0)
         for j in range(d):
-            triple = next_triple(alice_q, bob_q)
+            triple = next_classical_triple(ELL)
             x_sh = (X_sh0[i][j], X_sh1[i][j])
             #this is where we actualliy make use of the MPC multiplication protocol
             prod_sh = beaver_mul(x_sh, w_sh[j], triple, ELL)
@@ -91,12 +96,12 @@ def secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d, alice_q, bob_q):
     return pred_sh
 
 
-def secure_backward(X_sh0, X_sh1, r_sh, batch_idx, d, alice_q, bob_q):
+def secure_backward(X_sh0, X_sh1, r_sh, batch_idx, d):
     grad_sh = []
     for j in range(d):
         grad = (0, 0)
         for k, i in enumerate(batch_idx):
-            triple = next_triple(alice_q, bob_q)
+            triple = next_classical_triple(ELL)
             x_sh = (X_sh0[i][j], X_sh1[i][j])
             prod_sh = beaver_mul(x_sh, r_sh[k], triple, ELL)
             prod_sh = truncate(prod_sh, F, ELL)
@@ -120,6 +125,12 @@ def loss_function(y_true, X, w):
     return np.mean((y_true - y_pred) ** 2)
 
 
+def r2_score(y_true, y_pred):
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - y_true.mean()) ** 2)
+    return 1 - ss_res / ss_tot
+
+
 def train():
     X_train, X_test, y_train, y_test = prepare_data()
     n, d = X_train.shape
@@ -138,8 +149,8 @@ def train():
     w_sh = [(0, 0) for _ in range(d)]
 
     #load triples
-    alice_q = load_triples(TRIPLES_DIR / "alice.json")
-    bob_q = load_triples(TRIPLES_DIR / "bob.json")
+    # alice_q = load_triples(TRIPLES_DIR / "alice.json")
+    # bob_q = load_triples(TRIPLES_DIR / "bob.json")
 
     lr_enc = encode(LR, F) % MOD
 
@@ -149,11 +160,11 @@ def train():
     loss_history.append(loss)
 
     for epoch in range(EPOCHS):
-        print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}, Triples left: {len(alice_q)}")
+        print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}")
 
         for batch_start in range(0, n, BATCH_SIZE):
             batch_idx = list(range(batch_start, min(batch_start + BATCH_SIZE, n)))
-            pred_sh = secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d, alice_q, bob_q)
+            pred_sh = secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d)
             r_sh = []
 
             for k, i in enumerate(batch_idx):
@@ -161,7 +172,7 @@ def train():
                 r1 = (pred_sh[k][1] - y_sh1[i]) % MOD
                 r_sh.append((r0, r1))
 
-            grad_sh = secure_backward(X_sh0, X_sh1, r_sh, batch_idx, d, alice_q, bob_q)
+            grad_sh = secure_backward(X_sh0, X_sh1, r_sh, batch_idx, d)
             w_sh = update_weights(w_sh, grad_sh, lr_enc, d)
 
         w_plain = [decode(reconstruct(w_sh[j][0], w_sh[j][1], ELL), F, ELL) for j in range(d)]
@@ -169,7 +180,7 @@ def train():
         loss_history.append(loss)
     
     plt.figure()
-    plt.plot(range(1, EPOCHS + 1), loss_history, marker='o')
+    plt.plot(range(0, EPOCHS + 1), loss_history, marker='o')
     plt.xlabel("Epoch")
     plt.ylabel("MSE Loss")
     plt.title("Secure SGD Training Loss (MPC over Beaver Triples)")
@@ -194,6 +205,10 @@ def train():
     sgd.fit(X_train, y_train)
     sklearn_mse = loss_function(y_test, X_test, sgd.coef_)
     print(f"Test MSE (sklearn baseline): {sklearn_mse:.6f}")
+
+    w_arr = np.array(w_plain)
+    r2 = r2_score(y_test, X_test @ w_arr)
+    print(f"R² (secure): {r2:.4f}")
 
     
 if __name__ == "__main__":
