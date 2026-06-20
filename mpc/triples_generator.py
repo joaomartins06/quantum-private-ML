@@ -54,8 +54,8 @@ def generate_batch(N, ell, triples_dir):
  
  
 if __name__ == "__main__":
-    N = 10000
-    ELL = 32
+    N = 50
+    ELL = 64
     TRIPLES_DIR = "triples_classical"
  
     generate_batch(N, ELL, TRIPLES_DIR)
