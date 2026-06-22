@@ -1,0 +1,58 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="autoray" />
+          <option value="contourpy" />
+          <option value="cotengra" />
+          <option value="cycler" />
+          <option value="cytoolz" />
+          <option value="dill" />
+          <option value="fonttools" />
+          <option value="iniconfig" />
+          <option value="kiwisolver" />
+          <option value="llvmlite" />
+          <option value="matplotlib" />
+          <option value="networkx" />
+          <option value="numba" />
+          <option value="numpy" />
+          <option value="packaging" />
+          <option value="pillow" />
+          <option value="pluggy" />
+          <option value="psutil" />
+          <option value="Pygments" />
+          <option value="pyparsing" />
+          <option value="pytest" />
+          <option value="python-dateutil" />
+          <option value="qiskit" />
+          <option value="qiskit-aer" />
+          <option value="quimb" />
+          <option value="rustworkx" />
+          <option value="scipy" />
+          <option value="six" />
+          <option value="stevedore" />
+          <option value="toolz" />
+          <option value="tqdm" />
+          <option value="typing_extensions" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="INFORMATION" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E302" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N806" />
+          <option value="N802" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
