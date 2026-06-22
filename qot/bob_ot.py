@@ -21,8 +21,9 @@ def bits_to_int(bits):
 
 
 async def one_ot_bob(sim_conn, epr_socket, y, ell, reader, writer):
-    """Run a single OT over the already-open connection. Retries on abort."""
+    """Run a single OT over the already-open connection. Retries on abort. Based on the textbook's Protocol 10."""
     while True:
+        # --- STEP 2. ---
         x_tilde = np.zeros(4 * ell, dtype=int)
         theta_tilde = np.random.randint(0, 2, size=4 * ell).astype(int)
 
@@ -51,38 +52,45 @@ async def one_ot_bob(sim_conn, epr_socket, y, ell, reader, writer):
         writer.write(b"MEASURED\n")
         await writer.drain()
 
-        #receive theta, compute matching set
+        # --- STEP 3. ---
+
+        #receive theta
         data = await reader.readline()
         theta = np.array([int(b) for b in data.decode().strip().split(",")], dtype=int)
-        I = np.where(theta == theta_tilde)[0]
 
-        if len(I) < 2 * ell:
+        # --- STEP 4. ---
+
+        #split positions by whether Bob happened to measure in Alice's basis.
+        I_known   = np.where(theta == theta_tilde)[0]  # here x_tilde == Alice's x
+        I_unknown = np.where(theta != theta_tilde)[0]  # here x_tilde is uncorrelated
+
+        if len(I_known) < ell or len(I_unknown) < ell:
             writer.write(b"ABORT\n")
             await writer.drain()
             continue  # retry this OT only
 
-        I_y = I[:ell]
-        I_1y = I[ell:2 * ell]
+        recover_idx = I_known[:ell]
+        hidden_idx  = I_unknown[:ell]
+
         if y == 0:
-            I0, I1 = I_y, I_1y
+            I0, I1 = recover_idx, hidden_idx
         else:
-            I0, I1 = I_1y, I_y
+            I0, I1 = hidden_idx, recover_idx
 
         writer.write(f"{','.join(map(str, I0))}|{','.join(map(str, I1))}\n".encode())
         await writer.drain()
 
-        #receive masked messages, recover s_y
+        # --- STEP 6. ---
+
+        #receive Alice's masked messages: t0 = s0 ^ x[I0], t1 = s1 ^ x[I1].
         data = await reader.readline()
         t0_str, t1_str = data.decode().strip().split("|")
         t0 = np.array([int(b) for b in t0_str.split(",") if b], dtype=int)
         t1 = np.array([int(b) for b in t1_str.split(",") if b], dtype=int)
 
-        if y == 0:
-            t_y, idx = t0, I0
-        else:
-            t_y, idx = t1, I1
-
-        return t_y ^ x_tilde[idx]
+        #unmask the chosen message using the positions Bob actually knows.
+        t_y = t0 if y == 0 else t1
+        return t_y ^ x_tilde[recover_idx]
 
 
 def make_run_bob(y_list, ell):

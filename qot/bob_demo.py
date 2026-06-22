@@ -81,22 +81,23 @@ async def handle_bases_bob(
     theta = np.array([int(b) for b in raw_msg.split(",")], dtype=int)
     ctx.theta = theta
 
-    I = np.where(ctx.theta == ctx.theta_tilde)[0]
-    if len(I) < 2*ell:
+    #split positions by whether Bob happened to measure in Alice's basis.
+    I_known    = np.where(ctx.theta == ctx.theta_tilde)[0]  # here x_tilde == Alice's x
+    I_unknown  = np.where(ctx.theta != ctx.theta_tilde)[0]  # here x_tilde uncorrelated
+
+    if len(I_known) < ell or len(I_unknown) < ell:
         writer.write(b"ABORT\n")
         await writer.drain()
         return STATE_RUNNING_QUANTUM
-    
-    I_y    = I[:ell]
-    I_1y   = I[ell:2*ell]
-    
-    if y == 0:
-        I0, I1 = I_y, I_1y
-    else:
-        I0, I1 = I_1y, I_y
 
-    ctx.I0 = I0
-    ctx.I1 = I1
+    recover_idx = I_known[:ell]
+    hidden_idx  = I_unknown[:ell]
+    ctx.recover_idx = recover_idx  # the only set Bob needs again, at unmask time
+
+    if y == 0:
+        I0, I1 = recover_idx, hidden_idx
+    else:
+        I0, I1 = hidden_idx, recover_idx
 
     I0_str = ",".join(map(str, I0))
     I1_str = ",".join(map(str, I1))
@@ -119,14 +120,9 @@ async def handle_masked_bob(
     t0 = np.array([int(b) for b in t0_str.split(",") if b], dtype=int)
     t1 = np.array([int(b) for b in t1_str.split(",") if b], dtype=int)
 
-    if y == 0:
-        t_y = t0
-        I_y = ctx.I0
-    else:
-        t_y = t1
-        I_y = ctx.I1
-
-    ctx.s_y = t_y ^ ctx.x_tilde[I_y]
+    #unmask the chosen message using the positions Bob actually knows.
+    t_y = t0 if y == 0 else t1
+    ctx.s_y = t_y ^ ctx.x_tilde[ctx.recover_idx]
     str_s_y = "".join(map(str, ctx.s_y))
 
     print(f"Bob: recovered s_{y} = {str_s_y}", flush=True)
@@ -144,8 +140,7 @@ def make_run_bob(y: int, ell: int):
             theta_tilde=None,
             x_tilde=None,
             theta=None,
-            I0=None,
-            I1=None,
+            recover_idx=None,
             s_y=None,
         )
  

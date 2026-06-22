@@ -31,7 +31,7 @@ Two parties, Alice and Bob, each hold a disjoint subset of features for the same
  
 ### Layer 1 — Quantum OT (`qot/`)
  
-Implements BB84-based 1-out-of-2 Oblivious Transfer using SimulaQron. Alice holds two strings `s0, s1`; Bob holds a choice bit `y` and recovers `s_y` without Alice learning `y` or Bob learning `s_{1-y}`.
+Implements BB84-based 1-out-of-2 Oblivious Transfer using SimulaQron. Alice holds two strings `s_0, s_1`; Bob holds a choice bit `y` and recovers `s_y` without Alice learning `y` or Bob learning `s_{1-y}`.
  
 - `alice_ot.py`, `bob_ot.py` — batched OT over a single persistent `NetQASMConnection` per party.
 - `alice_demo.py`, `bob_demo.py` — single-OT scripts for isolated testing.
