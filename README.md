@@ -87,8 +87,18 @@ simulaqron stop
 ### Run secure training
  
 ```bash
-python ml/train.py
+python ml/train.py                    # classical triples, generated on the fly (default)
+python ml/train.py --triples quantum  # pre-generated triples loaded from triples/
 ```
+ 
+The `--triples` flag selects the Beaver-triple source consumed by every secure multiplication:
+ 
+| Value | Source | Notes |
+|-------|--------|-------|
+| `classical` (default) | Fresh classical triples generated per multiplication via `triples_generator.py` | Fast; no privacy claim. Uses `--ell`/`--f`. |
+| `quantum` | Pre-generated triples loaded from `--triples-dir` (default `triples/`, the quantum-generated set) | Adopts the `ell` stored in the file; recycles when the file is exhausted (insecure — demo only). |
+ 
+Other flags: `--ell` (ring bit-width, default 64; ignored for `--triples quantum`), `--f` (fixed-point fractional bits, default 16), `--lr`, `--batch-size`, `--epochs`, `--max-samples` (cap training rows), `--triples-dir`, `--plot-path`, `--no-plot`. The run prints its projected triple consumption before starting.
  
 ### Cleanup after interrupted runs
  
@@ -98,6 +108,43 @@ pkill -9 -f simulaqron
 pkill -9 -f alice_ot
 pkill -9 -f bob_ot
 rm -f ~/.simulaqron_pids/*
+```
+ 
+---
+ 
+## Tests
+ 
+There is one test module per layer. Run everything from the **repo root** (the tests put the repo on `sys.path` and reference paths like `qot/simulaqron_network.json` relative to it).
+
+| Test | Layer | Needs SimulaQron? |
+|------|-------|-------------------|
+| `mpc/test_multiply.py` | 2 — MPC primitives (encode/share/`beaver_mul`/`truncate`) | No |
+| `ml/test_train.py` | 3 — secure SGD convergence vs. plaintext | No |
+| `mpc/test_triple_quantum.py` | 2 — quantum Beaver-triple relation | Yes |
+| `qot/test_quantum.py` | 1 — BB84 OT recovers `s_y` only | Yes |
+ 
+### Fast tests (no quantum backend)
+ 
+The classical tests are pure and deterministic, so they run in well under a second:
+ 
+```bash
+pytest mpc/test_multiply.py ml/test_train.py -v
+```
+ 
+### Quantum tests (require SimulaQron)
+ 
+These drive a live SimulaQron backend (which they start and stop themselves) and are slow — every qubit is simulated. Run them inside the quantum env, from the repo root:
+ 
+```bash
+source simulaqron-venv/bin/activate
+pytest mpc/test_triple_quantum.py qot/test_quantum.py -v
+```
+ 
+Both quantum modules **skip automatically** if the `simulaqron` CLI is not on `PATH`, so the full suite stays green in environments without the backend:
+ 
+```bash
+# runs the fast tests, skips the quantum ones when SimulaQron is absent
+pytest -v
 ```
  
 ---
