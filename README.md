@@ -87,8 +87,18 @@ simulaqron stop
 ### Run secure training
  
 ```bash
-python ml/train.py
+python ml/train.py                    # classical triples, generated on the fly (default)
+python ml/train.py --triples quantum  # pre-generated triples loaded from triples/
 ```
+ 
+The `--triples` flag selects the Beaver-triple source consumed by every secure multiplication:
+ 
+| Value | Source | Notes |
+|-------|--------|-------|
+| `classical` (default) | Fresh classical triples generated per multiplication via `triples_generator.py` | Fast; no privacy claim. Uses `--ell`/`--f`. |
+| `quantum` | Pre-generated triples loaded from `--triples-dir` (default `triples/`, the quantum-generated set) | Adopts the `ell` stored in the file; recycles when the file is exhausted (insecure — demo only). |
+ 
+Other flags: `--ell` (ring bit-width, default 64; ignored for `--triples quantum`), `--f` (fixed-point fractional bits, default 16), `--lr`, `--batch-size`, `--epochs`, `--max-samples` (cap training rows), `--triples-dir`, `--plot-path`, `--no-plot`. The run prints its projected triple consumption before starting.
  
 ### Cleanup after interrupted runs
  

@@ -28,9 +28,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from ml.train import (
     encode, decode, reconstruct, encode_and_share,
     secure_forward, secure_backward, update_weights,
-    ELL, F, MOD,
 )
+from mpc.triple_source import make_triple_source
 
+ELL = 64
+F = 16
+MOD = 1 << ELL
 LR = 0.05
 BATCH_SIZE = 4
 EPOCHS = 30
@@ -68,17 +71,18 @@ def run_secure_sgd(X, y):
     y_sh0, y_sh1 = encode_and_share(y, F, ELL)
     w_sh = [(0, 0) for _ in range(d)]
     lr_enc = encode(LR, F) % MOD
+    triples = make_triple_source("classical", ELL)
 
     for _ in range(EPOCHS):
         for start in range(0, n, BATCH_SIZE):
             batch_idx = list(range(start, min(start + BATCH_SIZE, n)))
-            pred_sh = secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d)
+            pred_sh = secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d, triples, F, ELL)
             r_sh = [
                 ((pred_sh[k][0] - y_sh0[i]) % MOD, (pred_sh[k][1] - y_sh1[i]) % MOD)
                 for k, i in enumerate(batch_idx)
             ]
-            grad_sh = secure_backward(X_sh0, X_sh1, r_sh, batch_idx, d)
-            w_sh = update_weights(w_sh, grad_sh, lr_enc, d)
+            grad_sh = secure_backward(X_sh0, X_sh1, r_sh, batch_idx, d, triples, F, ELL)
+            w_sh = update_weights(w_sh, grad_sh, lr_enc, d, F, ELL)
 
     return reconstruct_weights(w_sh, d)
 
