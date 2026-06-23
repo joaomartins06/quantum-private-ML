@@ -102,6 +102,43 @@ rm -f ~/.simulaqron_pids/*
  
 ---
  
+## Tests
+ 
+There is one test module per layer. Run everything from the **repo root** (the tests put the repo on `sys.path` and reference paths like `qot/simulaqron_network.json` relative to it).
+
+| Test | Layer | Needs SimulaQron? |
+|------|-------|-------------------|
+| `mpc/test_multiply.py` | 2 — MPC primitives (encode/share/`beaver_mul`/`truncate`) | No |
+| `ml/test_train.py` | 3 — secure SGD convergence vs. plaintext | No |
+| `mpc/test_triple_quantum.py` | 2 — quantum Beaver-triple relation | Yes |
+| `qot/test_quantum.py` | 1 — BB84 OT recovers `s_y` only | Yes |
+ 
+### Fast tests (no quantum backend)
+ 
+The classical tests are pure and deterministic, so they run in well under a second:
+ 
+```bash
+pytest mpc/test_multiply.py ml/test_train.py -v
+```
+ 
+### Quantum tests (require SimulaQron)
+ 
+These drive a live SimulaQron backend (which they start and stop themselves) and are slow — every qubit is simulated. Run them inside the quantum env, from the repo root:
+ 
+```bash
+source simulaqron-venv/bin/activate
+pytest mpc/test_triple_quantum.py qot/test_quantum.py -v
+```
+ 
+Both quantum modules **skip automatically** if the `simulaqron` CLI is not on `PATH`, so the full suite stays green in environments without the backend:
+ 
+```bash
+# runs the fast tests, skips the quantum ones when SimulaQron is absent
+pytest -v
+```
+ 
+---
+ 
 ## References
  
 - Mohassel, P. & Zhang, Y. (2017). *SecureML: A System for Scalable Privacy-Preserving Machine Learning.* IEEE S&P 2017.
