@@ -41,12 +41,13 @@ EPOCHS = 30
 
 @pytest.fixture(autouse=True)
 def _seed():
+    # fix seeds so share randomness and triple generation are deterministic
     np.random.seed(0)
-    random.seed(0)  # shares + classical triples
+    random.seed(0)
 
 
 def make_data():
-    """Small, well-conditioned linear problem: y = X @ w_true (no noise)."""
+    # small, well-conditioned linear problem with no noise so convergence is fast
     n, d = 12, 3
     X = np.random.randn(n, d)
     w_true = np.array([1.5, -2.0, 0.5])
@@ -59,13 +60,14 @@ def mse(X, y, w):
 
 
 def reconstruct_weights(w_sh, d):
+    # recover plaintext weights from shares for comparison
     return np.array([
         decode(reconstruct(w_sh[j][0], w_sh[j][1], ELL), F, ELL) for j in range(d)
     ])
 
 
 def run_secure_sgd(X, y):
-    """Secure SGD built from the real train.py primitives."""
+    # run the real train.py primitives end-to-end with on-demand classical triples
     n, d = X.shape
     X_sh0, X_sh1 = encode_and_share(X, F, ELL)
     y_sh0, y_sh1 = encode_and_share(y, F, ELL)
@@ -77,6 +79,7 @@ def run_secure_sgd(X, y):
         for start in range(0, n, BATCH_SIZE):
             batch_idx = list(range(start, min(start + BATCH_SIZE, n)))
             pred_sh = secure_forward(X_sh0, X_sh1, w_sh, batch_idx, d, triples, F, ELL)
+            # residual computed locally from shares, no triples needed
             r_sh = [
                 ((pred_sh[k][0] - y_sh0[i]) % MOD, (pred_sh[k][1] - y_sh1[i]) % MOD)
                 for k, i in enumerate(batch_idx)
@@ -88,7 +91,7 @@ def run_secure_sgd(X, y):
 
 
 def run_plaintext_sgd(X, y):
-    """Plaintext SGD with the identical update math (the ground truth)."""
+    # identical update math in plaintext, used as ground truth to verify the secure version
     n, d = X.shape
     w = np.zeros(d)
     for _ in range(EPOCHS):
@@ -105,7 +108,8 @@ def test_secure_training_converges():
     X, y, _ = make_data()
     w_secure = run_secure_sgd(X, y)
 
-    initial_loss = mse(X, y, np.zeros(X.shape[1]))  # loss at w = 0
+    # loss should drop to at least 10% of the value at w=0
+    initial_loss = mse(X, y, np.zeros(X.shape[1]))
     final_loss = mse(X, y, w_secure)
     assert final_loss < initial_loss * 0.1, (
         f"secure training did not converge: {initial_loss:.4f} -> {final_loss:.4f}"
@@ -116,7 +120,7 @@ def test_secure_matches_plaintext_sgd():
     X, y, _ = make_data()
     w_secure = run_secure_sgd(X, y)
     w_plain = run_plaintext_sgd(X, y)
-    # only fixed-point quantisation + ±1-LSB truncation should separate them
+    # only fixed-point quantisation and ±1-LSB truncation error should separate them
     assert np.allclose(w_secure, w_plain, atol=1e-2), (
         f"secure {w_secure} vs plaintext {w_plain}"
     )

@@ -31,22 +31,26 @@ async def handle_quantum_alice(
     reader: StreamReader,
     writer: StreamWriter,
 ) -> str:
-
+    # sample alice's random bits and bases for this OT round
     ctx.x = np.random.randint(0, 2, size=4*ell).astype(int)
     ctx.theta = np.random.randint(0, 2, size=4*ell).astype(int)
 
+    # open a fresh connection and epr socket for this single OT
     epr_socket = EPRSocket("Bob")
     with NetQASMConnection("Alice", epr_sockets=[epr_socket], max_qubits=4*ell) as sim_conn:
         for i in range(4*ell):
             print(f"Alice: teleporting qubit {i}", flush=True)
+            # create one half of an epr pair
             epr_half = epr_socket.create_keep(number=1)[0]
             q = Qubit(sim_conn)
 
+            # encode x[i] in the chosen basis theta[i]
             if ctx.x[i] == 1:
                 q.X()
             if ctx.theta[i] == 1:
                 q.H()
 
+            # teleport: entangle with epr half, measure both, send corrections
             q.cnot(epr_half)
             q.H()
             m1 = q.measure()
@@ -57,16 +61,16 @@ async def handle_quantum_alice(
             writer.write(f"{m1_val}:{m2_val}\n".encode())
             await writer.drain()
 
+    # wait for bob to confirm all qubits received and measured
     data = await reader.readline()
     msg = data.decode().strip()
     if msg != "MEASURED":
         raise RuntimeError(f"Expected MEASURED, got '{msg}'")
 
-    # now safe to send theta
+    # send bases so bob can identify which positions he measured correctly
     theta_str = ",".join(map(str, ctx.theta))
     writer.write(f"{theta_str}\n".encode())
     await writer.drain()
-        
 
     return STATE_WAITING_PARTITION
  
@@ -78,12 +82,12 @@ async def handle_partition_alice(
     writer: StreamWriter,
     raw_msg: str,
 ) -> str:
-
-
+    # parse the two index sets bob chose
     i0, i1 = raw_msg.split("|", 1)
     I0 = np.array([int(i) for i in i0.split(",") if i], dtype=int)
     I1 = np.array([int(i) for i in i1.split(",") if i], dtype=int)
 
+    # mask both messages with alice's bits at the respective positions
     t0 = s0 ^ ctx.x[I0]
     t1 = s1 ^ ctx.x[I1]
 
@@ -128,7 +132,6 @@ def make_run_alice(s0: np.ndarray, s1: np.ndarray, ell: int):
     return run_alice
  
 
- 
 if __name__ == "__main__":
 
     if len(sys.argv) != 4:
@@ -148,7 +151,3 @@ if __name__ == "__main__":
  
     print(f"Alice: starting OT (ell={ell}, s0={s0}, s1={s1})")
     client.run_client("Bob", make_run_alice(s0, s1, ell))
-
-
-
-
